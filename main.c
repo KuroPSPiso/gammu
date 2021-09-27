@@ -105,23 +105,21 @@ void computeVerticalLine()
 	// - Optimize = scalable
 
 	UINT8 scanline_y;
-	for (scanline_y = 1; scanline_y < 8; scanline_y++) {
+	for (scanline_y = 0; scanline_y < 8 * 4; scanline_y++) {
 		UINT8 x = mod(scanline_x, 8);
 		UINT8 x_pixel = mod(scanline_x, 4);
 		UINT8 x_second = mod(scanline_x, 2);
 		UINT8 xOffset = scanline_x / 8;
+		xOffset = 16 * xOffset;
+		xOffset = 4 * xOffset;
 		if (x == 0)
 		{
-			vramData[scanline_y * 2 + xOffset + 0x00] = 0x00;
-			vramData[scanline_y * 2 + xOffset + 0x01] = 0x00;
-			//vramData[xOffset + x + scanline_y * 2] = 0x00;
-			//vramData[xOffset + x + 1 + scanline_y * 2] = 0x00;
+			vramData[xOffset + x + scanline_y * 2] = 0x00;
+			vramData[xOffset + x + 1 + scanline_y * 2] = 0x00;
 		}
 
-		vramData[scanline_y * 2 + xOffset + 0x00] = 0xff - 0x01 << x;
-		vramData[scanline_y * 2 + xOffset + 0x01] = 0xff - 0x01 << x;
-		//vramData[xOffset + x + scanline_y * 2] |= 0x01 << x;
-		//vramData[xOffset + x + 1 + scanline_y * 2] |= 0x01 << x;
+		vramData[xOffset + x + scanline_y * 2] = 0xFF;
+		vramData[xOffset + x + 1 + scanline_y * 2] = 0xFF;
 	}
 
 	renderGraphics();
@@ -138,8 +136,8 @@ void computeGraphics()
 		//renderGraphics();
 	}*/
 
-	if (scanline_x < 8) scanline_x++;
-	else scanline_x = 0x01;
+	if (scanline_x < 8 * 4) scanline_x++;
+	else scanline_x = 0x00;
 }
 
 void init()
