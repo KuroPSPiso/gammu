@@ -33,13 +33,39 @@ unsigned char vramTiles[] = {
 	0xFF
 };
 
+unsigned char timer[] = {
+	0x00,
+	0x00,
+	0x00,
+	0x23,
+	0x13,
+	0x1E,
+	0x0D,
+	0x16,
+	0x22,
+	0x1D,
+	0x23
+};
+unsigned char timer2[] = {
+	0x00,
+	0x00,
+	0x00,
+	0x16,
+	0x22,
+	0x1D,
+	0x23
+};
+
 unsigned char offsetTile = 0;
 unsigned char offsetXTile = 0;
 unsigned char offsetXTileSet = 0;
+UINT16 count;
+UWORD countFrameTime;
+
 
 //constants
 const unsigned char baseTile = 0x31;
-const unsigned char screenSize = 7; //max size 8
+const unsigned char screenSize = 8; //max size 8
 
 const char map[] = {
 	WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,
@@ -64,6 +90,7 @@ const char map[] = {
 //implicit methods
 UINT8 pixColour(UINT8 px);
 UINT8 mod(UINT8 a, UINT8 divider);
+UINT16 mod16(UINT16 a, UINT16 divider);
 
 //methods
 void clearScreen()
@@ -110,7 +137,7 @@ void computeGraphics()
 		computeVerticalLine();
 		scanline_x++;
 	}
-	set_bkg_tiles(40 - 8 / screenSize + offsetXTileSet, 37 - 8 / screenSize, 1, screenSize, vramTiles);
+	set_bkg_tiles(37 + offsetXTileSet, 35, 1, screenSize, vramTiles);
 	offsetXTileSet++;
 
 	offsetXTile += screenSize;
@@ -134,12 +161,34 @@ void computeGraphics()
 	vramTileData[0xC + 0x01] = 0x00;
 	vramTileData[0xE + 0x00] = 0x00;
 	vramTileData[0xE + 0x01] = 0x00;
+	countFrameTime++;
 
 	if (scanline_x >= 8 * screenSize - 1) {
 		scanline_x = 0x00;
 		offsetXTile = 0x00;
 		offsetXTileSet = 0x00;
+		countFrameTime = 0x00;
 	}
+}
+
+void renderTimer() {
+
+	timer[0x00] = mod16(countFrameTime, 1000) / 100;
+	timer[0x01] = mod16(countFrameTime, 100) / 10;
+	timer[0x02] = mod16(countFrameTime, 10);
+	set_bkg_tiles(0, 1, 11, 1, timer);		// frametime for drawing
+
+	if (count > 999) count -= 999;
+	timer2[0x00] = mod16(count, 1000) / 100;
+	timer2[0x01] = mod16(count, 100) / 10;
+	timer2[0x02] = mod16(count, 10);
+
+	set_bkg_tiles(0, 2, 7, 1, timer2);		// frame
+}
+
+void timer_isr(void)
+{
+	count++;
 }
 
 void init()
@@ -149,8 +198,11 @@ void init()
 	NR51_REG = 0x11;	// Enable the sound channels
 	NR50_REG = 0x77;	// Increase the volume to its max
 
+	disable_interrupts();
+	add_TIM(timer_isr);
+	enable_interrupts();
+
 	set_bkg_data(0, 47, alpha);		// Load 47 tiles into background memory
-	
 }
 
 
@@ -166,10 +218,13 @@ void checkInput() {
 	}
 }
 
+
 void updateSwitches() {
 	HIDE_WIN;
 	SHOW_SPRITES;
 	SHOW_BKG;
+
+	//set_interrupts(TIM_IFLAG);
 }
 
 void main(void)
@@ -184,7 +239,10 @@ void main(void)
 
 		// Game main loop processing goes here
 		computeGraphics();
-		//renderFrame();
+
+		//debug-data
+		renderTimer();
+		count++;
 
 		// Done processing, yield CPU and wait for start of next frame
         wait_vbl_done();
@@ -202,6 +260,13 @@ UINT8 pixColour(UINT8 px)
 }
 
 UINT8 mod(UINT8 a, UINT8 divider)
+{
+	if (divider == 0) return 0;
+	modMultiplier = a / divider;
+	return a - divider * modMultiplier;
+}
+
+UINT16 mod16(UINT16 a, UINT16 divider)
 {
 	if (divider == 0) return 0;
 	modMultiplier = a / divider;
