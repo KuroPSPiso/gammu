@@ -8,11 +8,10 @@
 #define FT 0 //floor tile
 #define WT 1 //wall tile
 
+#define PI 3.141
+
 //global variables
 UINT8 modMultiplier = 0x00;
-UINT8 test = 1;
-UINT16 playerX = 00;
-UINT16 playerY = 00;
 UINT8 updateScreen = TRUE;
 UINT8 tick = 0x00;
 UINT8 scanline_x = 0x00;
@@ -62,10 +61,20 @@ unsigned char offsetXTileSet = 0;
 UINT16 count;
 UWORD countFrameTime;
 
-
 //constants
 const unsigned char baseTile = 0x31;
 const unsigned char screenSize = 8; //max size 8
+
+//FPS content
+float playerX = 8;
+float playerY = 8;
+float playerA = 00;
+UINT16 mapHeight = 16;
+UINT16 mapWidth = 16;
+float FOV = PI / 4;
+float distToWall = 0;
+int ceilingOffset;
+int floorOffset;
 
 const char map[] = {
 	WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,
@@ -91,6 +100,8 @@ const char map[] = {
 UINT8 pixColour(UINT8 px);
 UINT8 mod(UINT8 a, UINT8 divider);
 UINT16 mod16(UINT16 a, UINT16 divider);
+float sin(float x);
+float cos(float x);
 
 //methods
 void clearScreen()
@@ -105,9 +116,17 @@ void computeVerticalLine()
 	UINT8 x = mod(scanline_x, 8);
 	offsetTile = 0x00;
 	for (height = 0; height < screenSize; height++) {
-				
-		vramTileData[0x0 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x0 + 0x01] |= 0x01 << 7 - x;
+		UINT8 y;
+		for (y = 0; y < 0XE; y += 2)
+		{
+			if (height * 8 + y < ceilingOffset)
+			{
+				vramTileData[y + 0x00] |= 0x01 << 7 - x;
+				vramTileData[y + 0x01] |= 0x01 << 7 - x;
+			}
+		}
+		/*vramTileData[0x00 + 0x00] |= 0x01 << 7 - x;
+		vramTileData[0x00 + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0x2 + 0x00] |= 0x01 << 7 - x;
 		vramTileData[0x2 + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0x4 + 0x00] |= 0x01 << 7 - x;
@@ -121,7 +140,7 @@ void computeVerticalLine()
 		vramTileData[0xC + 0x00] |= 0x01 << 7 - x;
 		vramTileData[0xC + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0xE + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0xE + 0x01] |= 0x01 << 7 - x;
+		vramTileData[0xE + 0x01] |= 0x01 << 7 - x;*/
 		
 		set_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
 		vramTiles[offsetTile] = baseTile + offsetTile + offsetXTile;
@@ -129,8 +148,41 @@ void computeVerticalLine()
 	}
 }
 
+
+
 void computeGraphics()
 {
+	//FPS logic start
+	float rayA = (playerA - FOV / 2) + ((float)scanline_x / (float)screenSize * 8) * FOV;
+	char hitWall = FALSE;
+
+	float eyeX = 0; //= sin(rayA);
+	float eyeY = 0; // = cos(rayA);
+
+	distToWall = 0;
+
+	while (!hitWall && distToWall < 8)
+	{
+		distToWall += 0.3f;
+
+		UINT16 testX = (UINT16)(playerX + eyeX * distToWall);
+		UINT16 testY = (UINT16)(playerX + eyeX * distToWall);
+
+		/*if (testX < 0 || testX >= mapWidth || testY < 0 || testY >= mapHeight)
+		{
+			hitWall = TRUE;
+			distToWall = 8;
+		}
+		else
+		{*/
+			if (map[testY * mapWidth + testX] == WT)
+			{
+				hitWall = TRUE;
+			}
+		/*}*/
+	}
+	//FPS logic end
+
 	UINT8 drawXCount;
 	for (drawXCount = 0; drawXCount < 8; drawXCount++)
 	{
@@ -271,4 +323,31 @@ UINT16 mod16(UINT16 a, UINT16 divider)
 	if (divider == 0) return 0;
 	modMultiplier = a / divider;
 	return a - divider * modMultiplier;
+}
+
+float sin(float x) {
+	float sign = 1;
+	float res = 0;
+	float term = x;
+	int k = 1;
+	while (res + term != res) {
+		res += term;
+		k += 2;
+		term *= -x * x / k / (k - 1);
+	}
+
+	return sign * res;
+}
+
+float cos(float x) {
+
+	float res = 0;
+	float term = 1;
+	int k = 0;
+	while (res + term != res) {
+		res += term;
+		k += 2;
+		term *= -x * x / k / (k - 1);
+	}
+	return res;
 }
