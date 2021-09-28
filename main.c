@@ -75,7 +75,6 @@ float FOV = PI / 4;
 float distToWall = 0;
 int ceilingOffset;
 int floorOffset;
-
 const char map[] = {
 	WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,WT,
 	WT,FT,FT,FT,FT,FT,FT,FT,FT,FT,FT,FT,FT,FT,FT,WT,
@@ -116,17 +115,9 @@ void computeVerticalLine()
 	UINT8 x = mod(scanline_x, 8);
 	offsetTile = 0x00;
 	for (height = 0; height < screenSize; height++) {
-		UINT8 y;
-		for (y = 0; y < 0XE; y += 2)
-		{
-			if (height * 8 + y < ceilingOffset)
-			{
-				vramTileData[y + 0x00] |= 0x01 << 7 - x;
-				vramTileData[y + 0x01] |= 0x01 << 7 - x;
-			}
-		}
-		/*vramTileData[0x00 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x00 + 0x01] |= 0x01 << 7 - x;
+				
+		vramTileData[0x0 + 0x00] |= 0x01 << 7 - x;
+		vramTileData[0x0 + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0x2 + 0x00] |= 0x01 << 7 - x;
 		vramTileData[0x2 + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0x4 + 0x00] |= 0x01 << 7 - x;
@@ -140,7 +131,7 @@ void computeVerticalLine()
 		vramTileData[0xC + 0x00] |= 0x01 << 7 - x;
 		vramTileData[0xC + 0x01] |= 0x01 << 7 - x;
 		vramTileData[0xE + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0xE + 0x01] |= 0x01 << 7 - x;*/
+		vramTileData[0xE + 0x01] |= 0x01 << 7 - x;
 		
 		set_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
 		vramTiles[offsetTile] = baseTile + offsetTile + offsetXTile;
@@ -148,38 +139,17 @@ void computeVerticalLine()
 	}
 }
 
-
-
 void computeGraphics()
 {
 	//FPS logic start
-	float rayA = (playerA - FOV / 2) + ((float)scanline_x / (float)screenSize * 8) * FOV;
-	char hitWall = FALSE;
-
-	float eyeX = 0; //= sin(rayA);
-	float eyeY = 0; // = cos(rayA);
-
-	distToWall = 0;
-
-	while (!hitWall && distToWall < 8)
+	UINT16 rayA = (playerA - FOV / 2) + (scanline_x / screenSize * 8) * FOV;
+	UINT16 distToWall = 0;
+	UINT8 hitWall = FALSE;
+	while (!hitWall)
 	{
-		distToWall += 0.3f;
+		distToWall += 1;
 
-		UINT16 testX = (UINT16)(playerX + eyeX * distToWall);
-		UINT16 testY = (UINT16)(playerX + eyeX * distToWall);
-
-		/*if (testX < 0 || testX >= mapWidth || testY < 0 || testY >= mapHeight)
-		{
-			hitWall = TRUE;
-			distToWall = 8;
-		}
-		else
-		{*/
-			if (map[testY * mapWidth + testX] == WT)
-			{
-				hitWall = TRUE;
-			}
-		/*}*/
+		hitWall = TRUE;
 	}
 	//FPS logic end
 
@@ -330,13 +300,15 @@ float sin(float x) {
 	float res = 0;
 	float term = x;
 	int k = 1;
-	while (res + term != res) {
-		res += term;
-		k += 2;
-		term *= -x * x / k / (k - 1);
+	/*while (res + term != res) {
+		res = res + term;
+		k = k + 2;
+		term = term * -x *x / k / (k - 1);
 	}
 
 	return sign * res;
+	*/
+	return sign;
 }
 
 float cos(float x) {
@@ -344,10 +316,11 @@ float cos(float x) {
 	float res = 0;
 	float term = 1;
 	int k = 0;
-	while (res + term != res) {
-		res += term;
-		k += 2;
-		term *= -x * x / k / (k - 1);
-	}
+	k = x;
+	/*while (res + term != res) {
+		res = res + term;
+		k = k + 2;
+		term = term * -x *x / k / (k - 1);
+	}*/
 	return res;
 }
