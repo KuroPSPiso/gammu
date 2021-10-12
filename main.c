@@ -1,6 +1,7 @@
 #include <gb/gb.h>
 #include <stdint.h>
 #include "alpha.c"
+#include "fixed16_min.c"
 
 #define TRUE 1
 #define FALSE 0
@@ -8,13 +9,14 @@
 #define FT 0 //floor tile
 #define WT 1 //wall tile
 
-#define PI 3.141
+//#define PI 3.141
 
 //global variables
 UINT8 modMultiplier = 0x00;
 UINT8 updateScreen = TRUE;
 UINT8 tick = 0x00;
 UINT8 scanline_x = 0x00;
+BOOL tileRenderSet = FALSE;
 
 unsigned char vramTileData[] = {
 		0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //tile (16bytes)
@@ -22,6 +24,18 @@ unsigned char vramTileData[] = {
 };
 
 unsigned char vramTiles[] = {
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF
+};
+unsigned char vramTilesRenderColumn[] = {
 	0xFF,
 	0xFF,
 	0xFF,
@@ -31,6 +45,19 @@ unsigned char vramTiles[] = {
 	0xFF,
 	0xFF
 };
+
+/*
+//draw each loop
+unsigned char vramTiles[] = {
+	0xFF,
+	0xFF,
+	0xFF,
+	0xFF,
+	0xFF,
+	0xFF,
+	0xFF,
+	0xFF
+};*/
 
 unsigned char timer[] = {
 	0x00,
@@ -99,8 +126,6 @@ const char map[] = {
 UINT8 pixColour(UINT8 px);
 UINT8 mod(UINT8 a, UINT8 divider);
 UINT16 mod16(UINT16 a, UINT16 divider);
-float sin(float x);
-float cos(float x);
 
 //methods
 void clearScreen()
@@ -110,32 +135,59 @@ void clearScreen()
 
 void computeVerticalLine()
 {
-	//UINT8 scanline_y;
-	UINT8 height;
+	UINT16 scanline_y;
+	unsigned char height;
 	UINT8 x = mod(scanline_x, 8);
 	offsetTile = 0x00;
-	for (height = 0; height < screenSize; height++) {
-				
-		vramTileData[0x0 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x0 + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0x2 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x2 + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0x4 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x4 + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0x6 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x6 + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0x8 + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0x8 + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0xA + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0xA + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0xC + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0xC + 0x01] |= 0x01 << 7 - x;
-		vramTileData[0xE + 0x00] |= 0x01 << 7 - x;
-		vramTileData[0xE + 0x01] |= 0x01 << 7 - x;
+
+	//offsety + ((time + posx) * timeScale) * amplitudeScale
+	UINT16 yDrawLine = 10 + (F16TOINT16(mulF16(sinF16(intToF16((count + scanline_x) * 1000)), 0x50)));
+	UINT16 yDrawLine2 = 40 + (F16TOINT16(mulF16(cosF16(intToF16((count + scanline_x) * 4000)), 0x100)));
+	get_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
+
+	for (scanline_y = 0; scanline_y < screenSize * 8 - 1; scanline_y++)
+	{
+		height = scanline_y * 2;
+		height &= 0x0F;
+		if (x == 0)
+		{
+			vramTileData[0x0 + 0x00] = 0x00;
+			vramTileData[0x0 + 0x01] = 0x00;
+			vramTileData[0x2 + 0x00] = 0x00;
+			vramTileData[0x2 + 0x01] = 0x00;
+			vramTileData[0x4 + 0x00] = 0x00;
+			vramTileData[0x4 + 0x01] = 0x00;
+			vramTileData[0x6 + 0x00] = 0x00;
+			vramTileData[0x6 + 0x01] = 0x00;
+			vramTileData[0x8 + 0x00] = 0x00;
+			vramTileData[0x8 + 0x01] = 0x00;
+			vramTileData[0xA + 0x00] = 0x00;
+			vramTileData[0xA + 0x01] = 0x00;
+			vramTileData[0xC + 0x00] = 0x00;
+			vramTileData[0xC + 0x01] = 0x00;
+			vramTileData[0xE + 0x00] = 0x00;
+			vramTileData[0xE + 0x01] = 0x00;
+		}
+
+		if (scanline_y == yDrawLine || scanline_y == yDrawLine2) //draw diagonal line
+		{
+			vramTileData[height + 0x00] |= 0x01 << 7 - x;
+			vramTileData[height + 0x01] |= 0x01 << 7 - x;
+		}
+		else
+		{
+			vramTileData[height + 0x00] &= ~(0x00 << 7 - x);
+			vramTileData[height + 0x01] &= ~(0x00 << 7 - x);
+		}
 		
-		set_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
-		vramTiles[offsetTile] = baseTile + offsetTile + offsetXTile;
-		offsetTile+=0x01;
+		if (height == 0xE)
+		{
+			set_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
+			//vramTiles[offsetTile] = baseTile + offsetTile + offsetXTile; //draw each loop
+			if(!tileRenderSet) vramTiles[offsetTile + 9 * (scanline_x/8)] = baseTile + offsetTile + offsetXTile;
+			offsetTile += 0x01;
+			get_bkg_data(baseTile + offsetTile + offsetXTile, 1, vramTileData);
+		}
 	}
 }
 
@@ -159,33 +211,35 @@ void computeGraphics()
 		computeVerticalLine();
 		scanline_x++;
 	}
-	set_bkg_tiles(37 + offsetXTileSet, 35, 1, screenSize, vramTiles);
+	//set_bkg_tiles(37 + offsetXTileSet, 35, 1, screenSize, vramTiles); //draw each loop
 	offsetXTileSet++;
 
 	offsetXTile += screenSize;
 
 	drawXCount = 0;
-
-	//TODO: can be disabled when screen is rendering (causes banding)
-	vramTileData[0x0 + 0x00] = 0x00;
-	vramTileData[0x0 + 0x01] = 0x00;
-	vramTileData[0x2 + 0x00] = 0x00;
-	vramTileData[0x2 + 0x01] = 0x00;
-	vramTileData[0x4 + 0x00] = 0x00;
-	vramTileData[0x4 + 0x01] = 0x00;
-	vramTileData[0x6 + 0x00] = 0x00;
-	vramTileData[0x6 + 0x01] = 0x00;
-	vramTileData[0x8 + 0x00] = 0x00;
-	vramTileData[0x8 + 0x01] = 0x00;
-	vramTileData[0xA + 0x00] = 0x00;
-	vramTileData[0xA + 0x01] = 0x00;
-	vramTileData[0xC + 0x00] = 0x00;
-	vramTileData[0xC + 0x01] = 0x00;
-	vramTileData[0xE + 0x00] = 0x00;
-	vramTileData[0xE + 0x01] = 0x00;
+	
 	countFrameTime++;
 
 	if (scanline_x >= 8 * screenSize - 1) {
+		unsigned char renderLoop;
+		if (!tileRenderSet)
+		{
+			for (renderLoop = 0; renderLoop < 8; renderLoop++)
+			{
+				vramTilesRenderColumn[0x00] = vramTiles[0x00 + 9 * renderLoop];
+				vramTilesRenderColumn[0x01] = vramTiles[0x01 + 9 * renderLoop];
+				vramTilesRenderColumn[0x02] = vramTiles[0x02 + 9 * renderLoop];
+				vramTilesRenderColumn[0x03] = vramTiles[0x03 + 9 * renderLoop];
+				vramTilesRenderColumn[0x04] = vramTiles[0x04 + 9 * renderLoop];
+				vramTilesRenderColumn[0x05] = vramTiles[0x05 + 9 * renderLoop];
+				vramTilesRenderColumn[0x06] = vramTiles[0x06 + 9 * renderLoop];
+				vramTilesRenderColumn[0x07] = vramTiles[0x07 + 9 * renderLoop];
+				//vramTilesRenderColumn[0x08] = vramTiles[0x08 + 9 * renderLoop];
+				set_bkg_tiles(37 + renderLoop, 35, 1, screenSize, vramTilesRenderColumn);
+			}
+			tileRenderSet = TRUE;
+		}
+		//set_bkg_tiles(37 + 1, 35, 9, screenSize, vramTiles);
 		scanline_x = 0x00;
 		offsetXTile = 0x00;
 		offsetXTileSet = 0x00;
@@ -293,34 +347,4 @@ UINT16 mod16(UINT16 a, UINT16 divider)
 	if (divider == 0) return 0;
 	modMultiplier = a / divider;
 	return a - divider * modMultiplier;
-}
-
-float sin(float x) {
-	float sign = 1;
-	float res = 0;
-	float term = x;
-	int k = 1;
-	/*while (res + term != res) {
-		res = res + term;
-		k = k + 2;
-		term = term * -x *x / k / (k - 1);
-	}
-
-	return sign * res;
-	*/
-	return sign;
-}
-
-float cos(float x) {
-
-	float res = 0;
-	float term = 1;
-	int k = 0;
-	k = x;
-	/*while (res + term != res) {
-		res = res + term;
-		k = k + 2;
-		term = term * -x *x / k / (k - 1);
-	}*/
-	return res;
 }
