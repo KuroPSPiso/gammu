@@ -34,6 +34,29 @@ INT16 powInt16(INT16 base, UINT8 exp)
     return ret;
 }
 
+//only used for angle representation TODO: remove
+int f16ToInt(fixed16 x)
+{
+    if (x == 0) return 0;
+    int ret;
+    UINT8 frac = x & fractionMaskF16;
+    //base calculation
+    ret = BASEF16TOINT(x);
+
+    //fraction calculation
+    INT16 fracValue;
+    char loopLowBits;
+
+    for (loopLowBits = 1; loopLowBits <= 0x000F; loopLowBits++)
+    {
+        fracValue = 0;
+        if (((frac >> (0x000F - loopLowBits)) & 0x01) > 0) fracValue = intMultiplier / powInt16(2, loopLowBits);
+        ret += fracValue;
+    }
+
+    return ret;
+}
+
 fixed16 intToF16(int x)
 {
     if (x == 0) return 0x0000;
